@@ -157,17 +157,35 @@ class BoardApiIntegrationTest {
     void badRequestHandlingMvcExceptions() throws Exception {
         mockMvc.perform(get("/api/posts?page=abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 경로 변수 타입이 올바르지 않습니다."));
 
         mockMvc.perform(get("/api/posts/abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 경로 변수 타입이 올바르지 않습니다."));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+                .andExpect(jsonPath("$.message").value("요청 본문 형식이 올바르지 않습니다."));
+    }
+
+    @Test
+    @DisplayName("표준 HTTP 오류: 405 Method Not Allowed, 415 Unsupported Media Type, 404 No Resource Found가 정상 반환된다")
+    void standardHttpErrorsArePreserved() throws Exception {
+        mockMvc.perform(put("/api/auth/login"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.message").value("지원하지 않는 HTTP 메서드입니다."));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("hello"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.message").value("지원하지 않는 미디어 타입입니다."));
+
+        mockMvc.perform(get("/api/no-such-route-endpoint"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("요청한 리소스를 찾을 수 없습니다."));
     }
 
     @Test
