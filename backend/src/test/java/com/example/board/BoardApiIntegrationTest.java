@@ -153,6 +153,24 @@ class BoardApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("타입 불일치 및 잘못된 JSON 형식 요청 시 500이 아닌 400 Bad Request가 반환된다")
+    void badRequestHandlingMvcExceptions() throws Exception {
+        mockMvc.perform(get("/api/posts?page=abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+
+        mockMvc.perform(get("/api/posts/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+    }
+
+    @Test
     @DisplayName("게시글 작성, 페이징 목록 조회(authorId 포함/content 제외), 상세 조회, 본인 및 타인 삭제 검증")
     void postCrudAndOwnershipWorkflow() throws Exception {
         SignupRequest userA = new SignupRequest("authorA@example.com", "password1234", "작성자A");

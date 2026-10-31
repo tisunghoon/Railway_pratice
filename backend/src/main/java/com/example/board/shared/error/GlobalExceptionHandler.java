@@ -1,14 +1,17 @@
 package com.example.board.shared.error;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.HashMap;
+import java.sql.SQLException;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -28,10 +31,19 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", message != null ? message : "입력값이 올바르지 않습니다."));
     }
 
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class,
+            IllegalArgumentException.class
+    })
+    public ResponseEntity<Map<String, String>> handleBadRequestExceptions(Exception ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", "요청 파라미터 또는 본문 형식이 올바르지 않습니다."));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
-        if (msg.contains("uk_members_email") || msg.contains("members(email)") || msg.contains("unique")) {
+        if (isEmailConstraintViolation(ex)) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("message", "이미 사용 중인 이메일입니다."));
         }
@@ -43,5 +55,30 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("message", "서버 내부 오류가 발생했습니다."));
+    }
+
+    private boolean isEmailConstraintViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException cve) {
+                String constraintName = cve.getConstraintName();
+                if (constraintName != null && constraintName.toLowerCase().contains("uk_members_email")) {
+                    return true;
+                }
+            }
+            if (current instanceof SQLException sqlEx) {
+                String sqlState = sqlEx.getSQLState();
+                String sqlMessage = sqlEx.getMessage() != null ? sqlEx.getMessage().toLowerCase() : "";
+                if ("23505".equals(sqlState) && sqlMessage.contains("uk_members_email")) {
+                    return true;
+                }
+            }
+            String message = current.getMessage() != null ? current.getMessage().toLowerCase() : "";
+            if (message.contains("uk_members_email")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

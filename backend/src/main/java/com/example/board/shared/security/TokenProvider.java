@@ -41,7 +41,11 @@ public class TokenProvider {
     }
 
     public Long parseAndValidateToken(String token) {
-        String[] parts = token.split("\\.");
+        if (token == null || token.isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "인증 토큰 형식이 올바르지 않습니다.");
+        }
+
+        String[] parts = token.split("\\.", -1);
         if (parts.length != 3) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "인증 토큰 형식이 올바르지 않습니다.");
         }
@@ -49,6 +53,10 @@ public class TokenProvider {
         String memberIdStr = parts[0];
         String expiresAtStr = parts[1];
         String givenSignature = parts[2];
+
+        if (memberIdStr.isBlank() || expiresAtStr.isBlank() || givenSignature.isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "인증 토큰 형식이 올바르지 않습니다.");
+        }
 
         String payload = memberIdStr + "." + expiresAtStr;
         String expectedSignature = sign(payload);

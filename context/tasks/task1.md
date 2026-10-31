@@ -72,19 +72,12 @@ public class TokenProperties {
   - 서명 검증 실패 → `ApiException(HttpStatus.UNAUTHORIZED, "인증 토큰 서명 검증에 실패했습니다.")`
   - 만료 시간 경과 → `ApiException(HttpStatus.UNAUTHORIZED, "인증 토큰이 만료되었습니다.")`
 
-### 4.3 `GlobalExceptionHandler`의 제약 이름 식별
-```java
-@ExceptionHandler(DataIntegrityViolationException.class)
-public ResponseEntity<Map<String, String>> handleDataIntegrity(DataIntegrityViolationException ex) {
-    String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
-    if (msg.contains("uk_members_email") || msg.contains("members(email)") || msg.contains("unique")) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("message", "이미 사용 중인 이메일입니다."));
-    }
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(Map.of("message", "데이터 제약 조건 위반이 발생했습니다."));
-}
-```
+### 4.3 `GlobalExceptionHandler`의 제약 이름 식별 및 클라이언트 요청 예외 처리
+- `DataIntegrityViolationException` 발생 시:
+  - 원인 예외 체인(`ConstraintViolationException` 또는 `SQLException`)에서 제약 조건 이름(`uk_members_email`)을 식별한 경우에만 `HttpStatus.CONFLICT` ("이미 사용 중인 이메일입니다.") 반환
+  - 그 외의 무결성 위반은 `HttpStatus.BAD_REQUEST` ("데이터 무결성 제약조건을 위반했습니다.") 반환
+- 표준 MVC 요청 파싱/타입 바인딩 예외 처리:
+  - `MethodArgumentTypeMismatchException`, `HttpMessageNotReadableException` 등 클라이언트의 잘못된 파라미터/JSON 본문 요청은 500이 아닌 `400 Bad Request` ("요청 파라미터 또는 본문 형식이 올바르지 않습니다.")로 반환
 
 ---
 
